@@ -1,0 +1,105 @@
+﻿import React, { useEffect } from 'react';
+import './App.css';
+// 1. 引入支付相关的组件和钩子函数
+import { TonConnectUIProvider, TonConnectButton, useTonConnectUI } from '@tonconnect/ui-react';
+import { SafeStarsProvider, BuyStarsButton } from '@safe-stars/components';
+
+declare global {
+  interface Window {
+    Telegram: any;
+  }
+}
+
+// 2. 创建一个新组件，用来放置游戏主界面和支付按钮
+function GameWithPayment() {
+  const [tonConnectUI] = useTonConnectUI(); // 获取TON钱包的连接实例
+  const tg = window.Telegram?.WebApp;
+
+  // 支付函数：用户点击后发起USDT支付
+  const handleUSDTDeposit = async () => {
+    if (!tonConnectUI) {
+      console.log('钱包未连接');
+      return;
+    }
+    // 发起一笔交易，向你的商家钱包地址转账10 USDT
+    // 【重要】这里只是示例，你需要把地址换成你自己的钱包地址，并让后端处理订单ID
+    const transaction = {
+      validUntil: Math.floor(Date.now() / 1000) + 300, // 交易有效期为5分钟
+      messages: [
+        {
+          address: '这里填写你接收USDT的钱包地址', // 例如: EQD... 
+          amount: '10000000', // 10 USDT (USDT有6位小数，所以是10 * 10^6 = 10,000,000)
+          payload: '订单ID，用于查询',
+        },
+      ],
+    };
+    try {
+      await tonConnectUI.sendTransaction(transaction);
+      tg?.showPopup({ title: '成功', message: '充值请求已发送！' });
+    } catch (e) {
+      console.error(e);
+      tg?.showPopup({ title: '失败', message: '交易被取消或失败。' });
+    }
+  };
+
+  return (
+    <div className="App">
+      {/* 游戏嵌入区 */}
+      <iframe
+        src="https://你的网页游戏地址.com/game" // 【请修改这里】
+        title="游戏主界面"
+        style={{
+          width: '100%',
+          height: 'calc(100vh - 70px)', // 预留底部空间给按钮栏
+          border: 'none',
+        }}
+      />
+      
+      {/* 底部按钮栏，用来放支付和下载入口 */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        width: '100%',
+        height: '60px',
+        background: '#fff',
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+        display: 'flex',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        zIndex: 100,
+      }}>
+        {/* USDT支付按钮 */}
+        <button onClick={handleUSDTDeposit} style={{ padding: '8px 16px', borderRadius: '8px' }}>
+          💰 充值 USDT
+        </button>
+        
+        {/* 使用Stars库的支付按钮，它提供了更丰富的购买界面 */}
+        <BuyStarsButton stars={50}>
+          ⭐ 购买道具 (50 Stars)
+        </BuyStarsButton>
+
+        {/* 【待实现】下载APP按钮 */}
+        <button style={{ padding: '8px 16px', borderRadius: '8px' }}>
+          📱 下载游戏APP
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 3. 主函数，用Provider包裹整个应用，使支付功能生效
+function App() {
+  // 定义你的TON Connect配置文件地址，这个文件需要放在你的服务器上，用于钱包识别你的应用
+  const manifestUrl = 'https://你的网站地址.com/tonconnect-manifest.json';
+  
+  return (
+    <TonConnectUIProvider manifestUrl={manifestUrl}>
+      <SafeStarsProvider config={{}}> {/* 如果需要USDT via TON支付，可以在这里配置API Key */}
+        <GameWithPayment />
+      </SafeStarsProvider>
+    </TonConnectUIProvider>
+  );
+}
+
+export default App;
